@@ -1,0 +1,190 @@
+union MaterialData
+{
+	struct LambertianData
+	{
+		Vec3 albedo;
+	} Lambertian;
+	struct MetalData
+	{
+		Vec3 albedo;
+	} Metal;
+	struct GenericData
+	{
+		Vec3 albedo;
+		float reflectivity;
+		float gloss;
+	} Generic;
+	__host__ __device__ MaterialData(LambertianData data) : Lambertian(data) { }
+	__host__ __device__ MaterialData(MetalData data) : Metal(data) { }
+	__host__ __device__ MaterialData(GenericData data) : Generic(data) { }
+};
+
+__host__ __device__ bool LambertianScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data);
+
+__host__ __device__ bool MetalScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data);
+
+__host__ __device__ bool GenericScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data);
+
+struct Material
+{
+	enum class Type
+	{
+		Lambertian,
+		Metal,
+		Generic,
+	} type;
+
+	MaterialData data;
+	__host__ __device__ Material(Type type, MaterialData data) : type(type), data(data) { }
+
+	__host__ __device__ bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
+	{
+		switch (type)
+		{
+		case Type::Lambertian:
+			return LambertianScatter(seed, t, point, normal, ray, attenuation, data);
+		case Type::Metal:
+			return MetalScatter(seed, t, point, normal, ray, attenuation, data);
+		case Type::Generic:
+			return GenericScatter(seed, t, point, normal, ray, attenuation, data);
+		default:
+			return bool();
+		}
+	}
+};
+
+__host__ __device__ bool LambertianScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data)
+{
+	ray = Ray3(point, normal + Vec3::RandomUnitVector(seed));
+	attenuation = data.Lambertian.albedo;
+	return true;
+}
+
+__host__ __device__ bool MetalScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data)
+{
+	ray = Ray3(point, ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal);
+	attenuation = data.Metal.albedo;
+	return Vec3::Dot(ray.Direction(), normal) > 0.0f;
+}
+
+__host__ __device__ bool GenericScatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation, MaterialData data)
+{
+	if (randLCG(seed) < data.Generic.reflectivity)
+	{
+		attenuation = data.Generic.albedo;
+		Vec3 reflected = ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal;
+		float r = reflected.Length();
+		float theta = acos(reflected.z / r);
+		float phi = atan2(reflected.y, reflected.x);
+		theta += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * data.Generic.gloss;
+		phi += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * data.Generic.gloss;
+		ray = Ray3(point, Vec3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)));
+		return Vec3::Dot(ray.Direction(), normal) > 0.0f;
+	}
+	else
+	{
+		attenuation = data.Generic.albedo * (1.0f - data.Generic.reflectivity);
+		float r = normal.Length();
+		float theta = acos(normal.z / r);
+		float phi = atan2(normal.y, normal.x);
+		theta += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * data.Generic.gloss;
+		phi += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * data.Generic.gloss;
+		ray = Ray3(point, Vec3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)));
+		return true;
+	}
+}
+
+__host__ __device__ Material Lambertian(Vec3 albedo)
+{
+	MaterialData::LambertianData data;
+	data.albedo = albedo;
+	return Material(Material::Type::Lambertian, data);
+}
+__host__ __device__ Material Metal(Vec3 albedo)
+{
+	MaterialData::MetalData data;
+	data.albedo = albedo;
+	return Material(Material::Type::Metal, data);
+}
+__host__ __device__ Material Generic(Vec3 albedo, float reflectivity, float gloss)
+{
+	MaterialData::GenericData data;
+	data.albedo = albedo;
+	data.reflectivity = reflectivity;
+	data.gloss = gloss;
+	return Material(Material::Type::Generic, data);
+}
+union HittableData
+{
+	struct SphereData
+	{
+		Vec3 center;
+		float radius;
+		Material* material;
+	} Sphere;
+	__host__ __device__ HittableData(SphereData data) : Sphere(data) { }
+};
+
+__host__ __device__ bool SphereHit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat, HittableData data);
+
+struct Hittable
+{
+	enum class Type
+	{
+		Sphere,
+	} type;
+
+	HittableData data;
+	__host__ __device__ Hittable(Type type, HittableData data) : type(type), data(data) { }
+
+	__host__ __device__ bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
+	{
+		switch (type)
+		{
+		case Type::Sphere:
+			return SphereHit(ray, tMin, tMax, t, point, normal, mat, data);
+		default:
+			return bool();
+		}
+	}
+};
+
+__host__ __device__ bool SphereHit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat, HittableData data)
+{
+	Vec3 oc = ray.Origin() - data.Sphere.center;
+	float b = Vec3::Dot(oc, ray.Direction());
+	float c = oc.LengthSquared() - data.Sphere.radius * data.Sphere.radius;
+	float discriminant = b * b - c;
+	if (discriminant > 0.0f)
+	{
+		float sqrtDiscriminant = sqrt(discriminant);
+		float temp = (-b - sqrtDiscriminant);
+		if (temp > tMin && temp < tMax)
+		{
+			t = temp;
+			point = ray.PointAt(temp);
+			normal = (point - data.Sphere.center) / data.Sphere.radius;
+			mat = data.Sphere.material;
+			return true;
+		}
+		temp = -b + sqrtDiscriminant;
+		if (temp > tMin && temp < tMax)
+		{
+			t = temp;
+			point = ray.PointAt(temp);
+			normal = (point - data.Sphere.center) / data.Sphere.radius;
+			mat = data.Sphere.material;
+			return true;
+		}
+	}
+	return false;
+}
+
+__host__ __device__ Hittable Sphere(Vec3 center, float radius, Material* material)
+{
+	HittableData::SphereData data;
+	data.center = center;
+	data.radius = radius;
+	data.material = material;
+	return Hittable(Hittable::Type::Sphere, data);
+}

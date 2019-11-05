@@ -1,0 +1,27 @@
+baseclass Material
+- bool DoSomething(int arg)
+- bool DoSomethingElse(int arg2)
+= int data
+
+subclass Lambertian implements Material
+- bool DoSomething(int arg)
+{
+	return arg > data;
+}
+- bool DoSomethingElse(int arg2)
+{
+	return arg2 < data + data2;
+}
+= int data2
+
+subclass Metal implements Material
+- bool DoSomething(int arg)
+{
+	return arg + data > data2 + data3;
+}
+- bool DoSomethingElse(int arg2)
+{
+	return arg2 - data < data3 - data2;
+}
+= int data2
+= int data3
