@@ -103,7 +103,7 @@ Token Tokenizer::Next()
 		return Token(Token::Type::Identifier, lexeme, line);
 	}
 
-	return Token();
+	return Token(Token::Type::Error, source.substr(start, current - start), line);
 }
 
 bool Tokenizer::IsAtEnd() const
