@@ -1,54 +1,101 @@
+baseclass Texture
+- Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
+
+subclass ConstantColor implements Texture
+- Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
+{
+	return albedo;
+}
+= Vec3 albedo
+
+subclass OutlinedColor implements Texture
+- Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
+{
+	float lerp = -Vec3::Dot(normal, ray.Direction());
+	return lerp * outline + (1.0f - lerp) * fill;
+}
+= Vec3 outline
+= Vec3 fill
+
 baseclass Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
+- Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
 
 subclass Lambertian implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
 {
+	attenuation = texture->Value(point, normal, ray);
 	ray = Ray3(point, normal + Vec3::RandomUnitVector(seed));
-	attenuation = albedo;
 	return true;
 }
-= Vec3 albedo
+- Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
+{
+	return Vec3(0.0f);
+}
+= Texture* texture
 
 subclass Metal implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
 {
+	attenuation = texture->Value(point, normal, ray);
 	ray = Ray3(point, ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal);
-	attenuation = albedo;
 	return Vec3::Dot(ray.Direction(), normal) > 0.0f;
 }
-= Vec3 albedo
+- Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
+{
+	return Vec3(0.0f);
+}
+= Texture* texture
 
-subclass Generic implements Material
+subclass DiffuseLight implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
 {
-	if (randLCG(seed) < reflectivity)
+	return false;
+}
+- Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
+{
+	return texture->Value(point, normal, ray);
+}
+= Texture* texture
+
+subclass Dieletric implements Material
+- bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
+{
+	Vec3 outwardNormal;
+	float niOverNt;
+	if (Vec3::Dot(ray.Direction(), normal) > 0.0f)
 	{
-		attenuation = albedo;
-		Vec3 reflected = ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal;
-		float r = reflected.Length();
-		float theta = acos(reflected.z / r);
-		float phi = atan2(reflected.y, reflected.x);
-		theta += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * gloss;
-		phi += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * gloss;
-		ray = Ray3(point, Vec3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)));
-		return Vec3::Dot(ray.Direction(), normal) > 0.0f;
+		outwardNormal = -normal;
+		niOverNt = refractiveIndex;
 	}
 	else
 	{
-		attenuation = albedo * (1.0f - reflectivity);
-		float r = normal.Length();
-		float theta = acos(normal.z / r);
-		float phi = atan2(normal.y, normal.x);
-		theta += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * gloss;
-		phi += 3.1415926f * 0.5f * (2.0f * randLCG(seed) - 1.0f) * gloss;
-		ray = Ray3(point, Vec3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta)));
-		return true;
+		outwardNormal = normal;
+		niOverNt = 1.0f / refractiveIndex;
 	}
+	float dt = Vec3::Dot(ray.Direction(), outwardNormal);
+	float discriminant = 1.0f - niOverNt * niOverNt * (1.0f - dt * dt);
+	if (discriminant > 0.0f)
+	{
+		float r0 = (1.0f - refractiveIndex) / (1.0f + refractiveIndex);
+		r0 *= r0;
+		if (r0 + (1.0f - r0) * pow(1.0f - niOverNt * Vec3::Dot(ray.Direction(), outwardNormal), 5.0f) > randLCG(seed))
+		{
+			attenuation = texture->Value(point, normal, ray);
+			ray = Ray3(point, niOverNt * (ray.Direction() - outwardNormal * dt) - outwardNormal * sqrt(discriminant));
+			return true;
+		}
+	}
+	attenuation = Vec3(1.0f);
+	ray = Ray3(point, ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal);
+	return true;
 }
-= Vec3 albedo
-= float reflectivity
-= float gloss
+- Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
+{
+	return Vec3(0.0f);
+}
+= float refractiveIndex
+= Texture* texture
 
 baseclass Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)

@@ -168,6 +168,7 @@ private:
 #pragma endregion
 
 #pragma region SAVEIMAGE
+#define CLAMP(x, min, max) ((x < min) ? min : ((x > max) ? max : x))
 void saveImage(int width, int height, Vec3* colors, const char* fname)
 {
 	std::ofstream file;
@@ -183,6 +184,9 @@ void saveImage(int width, int height, Vec3* colors, const char* fname)
 			float r = sqrt(colors[i + j * width].x);
 			float g = sqrt(colors[i + j * width].y);
 			float b = sqrt(colors[i + j * width].z);
+			r = CLAMP(r, 0.0f, 1.0f);
+			g = CLAMP(g, 0.0f, 1.0f);
+			b = CLAMP(b, 0.0f, 1.0f);
 			int8_t ir = int8_t(255.0f * r);
 			int8_t ig = int8_t(255.0f * g);
 			int8_t ib = int8_t(255.0f * b);
@@ -192,6 +196,7 @@ void saveImage(int width, int height, Vec3* colors, const char* fname)
 
 	file.close();
 }
+#undef CLAMP
 #pragma endregion
 
 #include "cuShyllGenerated.txt"
@@ -225,44 +230,53 @@ __device__ Vec3 color(uint32_t* seed, Hittable* hittables, int numHittables, Ray
 	Vec3 normal;
 	Material* mat;
 	int depth = 0;
-	Vec3 total(1.0f);
+	Vec3 sum(0.0f);
+	Vec3 multiplier(1.0f);
 	Vec3 attenuation;
+
 	while (depth++ < MAX_DEPTH)
 	{
 		if (listHit(hittables, numHittables, ray, 0.001f, FLT_MAX, t, point, normal, mat))
 		{
+			// todo: probably find out why texture pointer was changing when passed to function??
+			sum = sum + mat->Emit(seed, t, point, normal, ray) * multiplier;
 			if (mat->Scatter(seed, t, point, normal, ray, attenuation))
 			{
-				total = total * attenuation;
+				multiplier = multiplier * attenuation;
 			}
 			else
 			{
-				total = Vec3(0.0f);
+				break;
 			}
 		}
 	}
-	return total;
+	return sum;
 }
 
-__global__ void render(Hittable* hittables, int numHittables, Camera cam, Vec3* cols, int width, int height, int samples)
+__global__ void render(Hittable* hittables, int numHittables, Camera cam, Vec3* cols, int width, int height, int samples, int sx, int sy, int ex, int ey)
 {
-	int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int j = (blockIdx.y * blockDim.y) + threadIdx.y;
-
-	uint32_t seed = (i ^ j) + ((threadIdx.x + 1) * (threadIdx.y + 1));
-	wangHash(&seed);
-
-	Vec3 overallCol;
-
-	for (int s = 0; s < samples; s++)
+	for (int i = sx + (blockIdx.x * blockDim.x) + threadIdx.x; i < ex; i += blockDim.x * gridDim.x)
 	{
-		float u = (i + randLCG(&seed)) / float(width), v = (j + randLCG(&seed)) / float(height);
-		Ray3 ray = cam.GetRay(u, v);
-		wangHash(&seed);
-		overallCol = overallCol + color(&seed, hittables, numHittables, ray);
-	}
+		if (i >= width) continue;
+		for (int j = sy + (blockIdx.y * blockDim.y) + threadIdx.y; j < ey; j += blockDim.y * gridDim.y)
+		{
+			if (j >= height) continue;
+			uint32_t seed = (i ^ j) + ((threadIdx.x + i + 1) * (threadIdx.y + j + 1));
+			wangHash(&seed);
 
-	cols[i + j * width] = overallCol / float(samples);
+			Vec3 overallCol;
+
+			for (int s = 0; s < samples; s++)
+			{
+				float u = (i + randLCG(&seed)) / float(width), v = (j + randLCG(&seed)) / float(height);
+				Ray3 ray = cam.GetRay(u, v);
+				wangHash(&seed);
+				overallCol = overallCol + color(&seed, hittables, numHittables, ray);
+			}
+
+			cols[i + j * width] = overallCol / float(samples);
+		}
+	}
 }
 
 auto startTime = std::chrono::high_resolution_clock::now();
@@ -272,7 +286,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 {
 	if (code != cudaSuccess)
 	{
-		fprintf(stderr, "GPUassert: %s %s %d %d\n", cudaGetErrorString(code), file, line, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count());
+		fprintf(stderr, "GPUassert: %s %s %d %lld\n", cudaGetErrorString(code), file, line, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count());
 		if (abort)
 		{
 			cudaDeviceReset();
@@ -281,35 +295,50 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 	}
 }
 
-int main(void)
+int main()
 {
-	const int width = 500, height = 500;
+	const int width = 600, height = 600, samples = 1000;
 
 	Vec3* cols;
-	cudaMallocManaged(&cols, width * height * sizeof(Vec3));
+	gpuErrchk(cudaMallocManaged(&cols, width * height * sizeof(Vec3)));
 
-	dim3 threadsPerBlock(10, 10);
-	dim3 numBlocks(width / threadsPerBlock.x, height / threadsPerBlock.y);
+	dim3 threadsPerBlock(16, 16);
+	dim3 numBlocks(8, 8);
 
 	Camera cam = Camera(Vec3(0.0f, 0.7f, -2.5f), Vec3(0.0f, 0.1f, 2.5f), Vec3(0.0f, 1.0f, 0.0f), 1.2f, width / float(height));
 
+	Texture* tlist;
+	gpuErrchk(cudaMallocManaged(&tlist, 4 * sizeof(Texture)));
+	tlist[0] = ConstantColor(Vec3(1.0f, 0.2f, 0.0f));
+	tlist[1] = ConstantColor(Vec3(0.2f, 0.8f, 0.4f));
+	tlist[2] = ConstantColor(Vec3(0.8f, 0.6f, 0.65f));
+	tlist[3] = ConstantColor(Vec3(2.5f));
+
 	Material* mlist;
-	cudaMallocManaged(&mlist, 3 * sizeof(Material));
-	mlist[0] = Generic(Vec3(1.0f, 0.0f, 0.0f), 0.0f, 0.4f);
-	mlist[1] = Lambertian(Vec3(0.2f, 0.8f, 0.4f));
-	mlist[2] = Lambertian(Vec3(0.2f, 0.4f, 0.7f));
+	gpuErrchk(cudaMallocManaged(&mlist, 4 * sizeof(Material)));
+	mlist[0] = Lambertian(&tlist[0]);
+	mlist[1] = Lambertian(&tlist[1]);
+	mlist[2] = Dieletric(1.8f, &tlist[2]);
+	mlist[3] = DiffuseLight(&tlist[3]);
 
 	Hittable* hlist;
-	cudaMallocManaged(&hlist, 3 * sizeof(Hittable));
+	gpuErrchk(cudaMallocManaged(&hlist, 4 * sizeof(Hittable)));
 	hlist[0] = Sphere(Vec3(0.55f, 0.5f, 0.0f), 0.5f, &mlist[0]);
 	hlist[1] = Sphere(Vec3(0.0f, -100.0f, 0.0f), 100.0f, &mlist[1]);
 	hlist[2] = Sphere(Vec3(-0.55f, 0.5f, 0.0f), 0.5f, &mlist[2]);
+	hlist[3] = Sphere(Vec3(0.0f, 2.5f, -0.2f), 1.5f, &mlist[3]);
 
-	render<<<numBlocks, threadsPerBlock>>>(hlist, 3, cam, cols, width, height, 200);
-	gpuErrchk(cudaPeekAtLastError());
-	gpuErrchk(cudaDeviceSynchronize());
+	for (int i = 0; i < width; i += threadsPerBlock.x * numBlocks.x / static_cast<int>(log10(samples)))
+	{
+		for (int j = 0; j < height; j += threadsPerBlock.y * numBlocks.y / static_cast<int>(log10(samples)))
+		{
+			render<<<numBlocks, threadsPerBlock>>>(hlist, 4, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x / 2, j + threadsPerBlock.y * numBlocks.y / 2);
+			gpuErrchk(cudaPeekAtLastError());
+			gpuErrchk(cudaDeviceSynchronize());
+		}
+	}
 
-	saveImage(width, height, cols, "test.ppm");
+	saveImage(width, height, cols, "test2.ppm");
 	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 
 	cudaDeviceReset();
