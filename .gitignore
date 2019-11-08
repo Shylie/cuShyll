@@ -341,3 +341,6 @@ healthchecksdb
 
 # Image output
 *.ppm
+
+# Custom build step files
+cuShyllTest/cuShyllGenerated.txt
