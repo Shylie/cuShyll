@@ -79,7 +79,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).type + " ";
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).name + ", ";
 		}
-		temp += hierarchies.at(base).base.name + "Data data";
+		temp += "const " + hierarchies.at(base).base.name + "Data& data";
 		if (forward)
 		{
 			temp += ");";
