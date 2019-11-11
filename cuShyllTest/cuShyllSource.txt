@@ -12,7 +12,7 @@ subclass OutlinedColor implements Texture
 - Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
 {
 	float lerp = -Vec3::Dot(normal, ray.Direction());
-	return lerp * outline + (1.0f - lerp) * fill;
+	return lerp * fill + (1.0f - lerp) * outline;
 }
 = Vec3 outline
 = Vec3 fill
