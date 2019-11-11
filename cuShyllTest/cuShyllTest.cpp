@@ -122,8 +122,8 @@ struct Ray3
 
 	__host__ __device__ Vec3 PointAt(float t) const { return origin + t * direction; }
 
-	__host__ __device__ Vec3 Origin() const { return origin; }
-	__host__ __device__ Vec3 Direction() const { return direction; }
+	__host__ __device__ const Vec3& Origin() const { return origin; }
+	__host__ __device__ const Vec3& Direction() const { return direction; }
 
 	__host__ __device__ Ray3 RotateX(float cosTheta, float sinTheta) const
 	{
@@ -302,43 +302,43 @@ int main()
 	Vec3* cols;
 	gpuErrchk(cudaMallocManaged(&cols, width * height * sizeof(Vec3)));
 
-	dim3 threadsPerBlock(16, 16);
-	dim3 numBlocks(8, 8);
+	dim3 threadsPerBlock(12, 12);
+	dim3 numBlocks(12, 12);
 
-	Camera cam = Camera(Vec3(0.0f, 0.7f, -2.5f), Vec3(0.0f, 0.1f, 2.5f), Vec3(0.0f, 1.0f, 0.0f), 1.2f, width / float(height));
+	Camera cam = Camera(Vec3(0.0f, 0.9f, -2.5f), Vec3(0.0f, 0.1f, 2.5f), Vec3(0.0f, 1.0f, 0.0f), 1.3f, width / float(height));
 
 	Texture* tlist;
 	gpuErrchk(cudaMallocManaged(&tlist, 4 * sizeof(Texture)));
-	tlist[0] = ConstantColor(Vec3(1.0f, 0.2f, 0.0f));
-	tlist[1] = ConstantColor(Vec3(0.2f, 0.8f, 0.4f));
-	tlist[2] = ConstantColor(Vec3(0.8f, 0.6f, 0.65f));
+	tlist[0] = ConstantColor(Vec3(0.2f, 0.8f, 0.4f));
+	tlist[1] = ConstantColor(Vec3(1.0f));
+	tlist[2] = ConstantColor(Vec3(0.8f, 0.3f, 0.1f));
 	tlist[3] = ConstantColor(Vec3(2.5f));
 
 	Material* mlist;
 	gpuErrchk(cudaMallocManaged(&mlist, 4 * sizeof(Material)));
 	mlist[0] = Lambertian(&tlist[0]);
-	mlist[1] = Lambertian(&tlist[1]);
-	mlist[2] = Dieletric(1.8f, &tlist[2]);
+	mlist[1] = Dieletric(5.0f, &tlist[1]);
+	mlist[2] = Lambertian(&tlist[2]);
 	mlist[3] = DiffuseLight(&tlist[3]);
 
 	Hittable* hlist;
 	gpuErrchk(cudaMallocManaged(&hlist, 4 * sizeof(Hittable)));
-	hlist[0] = Sphere(Vec3(0.55f, 0.5f, 0.0f), 0.5f, &mlist[0]);
-	hlist[1] = Sphere(Vec3(0.0f, -100.0f, 0.0f), 100.0f, &mlist[1]);
-	hlist[2] = Sphere(Vec3(-0.55f, 0.5f, 0.0f), 0.5f, &mlist[2]);
-	hlist[3] = Sphere(Vec3(0.0f, 2.5f, -0.2f), 1.5f, &mlist[3]);
+	hlist[0] = Sphere(Vec3(0.0f, -100.0f, 0.0f), 100.0f, &mlist[0]);
+	hlist[1] = Sphere(Vec3(0.0f, 0.6f, 0.0f), 0.4f, &mlist[1]);
+	hlist[2] = RectangularPlane(-0.4f, 0.4f, -0.4f, 0.4f, 0.15f, 0, 1, &mlist[2]);
+	hlist[3] = Sphere(Vec3(0.0f, 3.5f, -0.2f), 1.5f, &mlist[3]);
 
-	for (int i = 0; i < width; i += threadsPerBlock.x * numBlocks.x / static_cast<int>(log10(samples)))
+	for (int i = 0; i < width; i += threadsPerBlock.x * numBlocks.x)
 	{
-		for (int j = 0; j < height; j += threadsPerBlock.y * numBlocks.y / static_cast<int>(log10(samples)))
+		for (int j = 0; j < height; j += threadsPerBlock.y * numBlocks.y)
 		{
-			render<<<numBlocks, threadsPerBlock>>>(hlist, 4, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x / 2, j + threadsPerBlock.y * numBlocks.y / 2);
+			render<<<numBlocks, threadsPerBlock>>>(hlist, 4, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x, j + threadsPerBlock.y * numBlocks.y);
 			gpuErrchk(cudaPeekAtLastError());
 			gpuErrchk(cudaDeviceSynchronize());
 		}
 	}
 
-	saveImage(width, height, cols, "test2.ppm");
+	saveImage(width, height, cols, "test5.ppm");
 	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 
 	cudaDeviceReset();

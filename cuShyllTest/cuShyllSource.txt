@@ -134,3 +134,89 @@ subclass Sphere implements Hittable
 = Vec3 center
 = float radius
 = Material* material
+
+subclass RectangularPlane implements Hittable
+- bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
+{
+	float _x, _y, _z;
+	switch (plane)
+	{
+	case 0: // yz plane
+		t = (k - ray.Origin().x) / ray.Direction().x;
+		if (t < tMin || t > tMax) return false;
+		_y = ray.Origin().y + t * ray.Direction().y;
+		_z = ray.Origin().z + t * ray.Direction().z;
+		if (_y < a1 || _y > a2 || _z < b1 || _z > b2) return false;
+		point = ray.PointAt(t);
+		mat = material;
+		switch (normalType)
+		{
+		case 0:
+			normal = ray.Direction().x < 0.0f ? Vec3(1.0f, 0.0f, 0.0f) : Vec3(-1.0f, 0.0f, 0.0f);
+			return true;
+		case 1:
+			normal = Vec3(1.0f, 0.0f, 0.0f);
+			return true;
+		case 2:
+			normal = Vec3(-1.0f, 0.0f, 0.0f);
+			return true;
+		default:
+			return false;
+		}
+	case 1: // xz plane
+		t = (k - ray.Origin().y) / ray.Direction().y;
+		if (t < tMin || t > tMax) return false;
+		_x = ray.Origin().x + t * ray.Direction().x;
+		_z = ray.Origin().z + t * ray.Direction().z;
+		if (_x < a1 || _x > a2 || _z < b1 || _z > b2) return false;
+		point = ray.PointAt(t);
+		mat = material;
+		return true;
+		switch (normalType)
+		{
+		case 0:
+			normal = ray.Direction().y < 0.0f ? Vec3(0.0f, 1.0f, 0.0f) : Vec3(0.0f, -1.0f, 0.0f);
+			return true;
+		case 1:
+			normal = Vec3(0.0f, 1.0f, 0.0f);
+			return true;
+		case 2:
+			normal = Vec3(0.0f, -1.0f, 0.0f);
+			return true;
+		default:
+			return false;
+		}
+	case 2: // xy plane
+		t = (k - ray.Origin().z) / ray.Direction().z;
+		if (t < tMin || t > tMax) return false;
+		_x = ray.Origin().x + t * ray.Direction().x;
+		_y = ray.Origin().y + t * ray.Direction().y;
+		if (_x < a1 || _x > a2 || _y < b1 || _y > b2) return false;
+		point = ray.PointAt(t);
+		mat = material;
+		switch (normalType)
+		{
+		case 0:
+			normal = ray.Direction().z < 0.0f ? Vec3(0.0f, 0.0f, 1.0f) : Vec3(0.0f, 0.0f, -1.0f);
+			return true;
+		case 1:
+			normal = Vec3(0.0f, 0.0f, 1.0f);
+			return true;
+		case 2:
+			normal = Vec3(0.0f, 0.0f, -1.0f);
+			return true;
+		default:
+			return false;
+		}
+	default:
+		return false;
+	}
+}
+= float a1
+= float a2
+= float b1
+= float b2
+= float k
+= int normalType
+= int plane
+= Material* material
