@@ -21,7 +21,7 @@ std::string Converter::operator()()
 
 std::string Converter::ConvertHierarchy(size_t base)
 {
-	std::string temp = "union " + hierarchies.at(base).base.name + "Data\n{\n";
+	std::string temp = "struct " + hierarchies.at(base).base.name + ";\nunion " + hierarchies.at(base).base.name + "Data\n{\n";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
 		temp += ConvertDataUnion(base, i) + "\n";
@@ -91,12 +91,12 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 			std::string unionName = "data." + hierarchies.at(base).subclasses.at(sub).name + ".$&";
 			for (size_t j = 0; j < hierarchies.at(base).subclasses.at(sub).data.size(); j++)
 			{
-				std::regex data(hierarchies.at(base).subclasses.at(sub).data.at(j).name);
+				std::regex data("\\b" + hierarchies.at(base).subclasses.at(sub).data.at(j).name + "\\b");
 				convertedContents = std::regex_replace(convertedContents, data, unionName);
 			}
 			for (size_t j = 0; j < hierarchies.at(base).base.data.size(); j++)
 			{
-				std::regex data(hierarchies.at(base).base.data.at(j).name);
+				std::regex data("\\b" + hierarchies.at(base).base.data.at(j).name + "\\b");
 				convertedContents = std::regex_replace(convertedContents, data, unionName);
 			}
 			temp += convertedContents;

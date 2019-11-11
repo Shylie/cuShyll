@@ -40,25 +40,36 @@ struct Vec3
 	float y;
 	float z;
 
-	__host__ __device__ Vec3()
+	__host__ __device__ Vec3() : x(0.0f), y(0.0f), z(0.0f) { }
+
+	__host__ __device__ Vec3(float val) : x(val), y(val), z(val) { }
+
+	__host__ __device__ Vec3(float x, float y, float z) : x(x), y(y), z(z) { }
+
+	__host__ __device__ float operator[](int index) const
 	{
-		x = 0.0f;
-		y = 0.0f;
-		z = 0.0f;
+		switch (index)
+		{
+		case 0:
+			return x;
+		case 1:
+			return y;
+		default:
+			return z;
+		}
 	}
 
-	__host__ __device__ Vec3(float val)
+	__host__ __device__ float& operator[](int index)
 	{
-		x = val;
-		y = val;
-		z = val;
-	}
-
-	__host__ __device__ Vec3(float _x, float _y, float _z)
-	{
-		x = _x;
-		y = _y;
-		z = _z;
+		switch (index)
+		{
+		case 0:
+			return x;
+		case 1:
+			return y;
+		default:
+			return z;
+		}
 	}
 
 	__host__ __device__ inline float Length() const { return sqrt(LengthSquared()); }
@@ -70,7 +81,7 @@ struct Vec3
 
 	__host__ __device__ inline static float Dot(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 	__host__ __device__ inline static Vec3 Cross(Vec3 a, Vec3 b) { return Vec3(a.y * b.z - a.z * b.y, -(a.x * b.z - a.z * b.x), a.x * b.y - a.y * b.x); }
-	__host__ __device__ inline static Vec3 RandomUnitVector(unsigned int* seed);
+	__host__ __device__ inline static Vec3 RandomUnitVector(uint32_t* seed);
 };
 
 __host__ __device__ inline Vec3 operator -(Vec3 a) { return Vec3(-a.x, -a.y, -a.z); }
@@ -199,7 +210,132 @@ void saveImage(int width, int height, Vec3* colors, const char* fname)
 #undef CLAMP
 #pragma endregion
 
+#pragma region AABB
+struct AABB
+{
+public:
+	__host__ __device__ AABB() { }
+	__host__ __device__ AABB(const Vec3& a, const Vec3& b) : min(Vec3(ffmin(a.x, b.x), ffmin(a.y, b.y), ffmin(a.z, b.z))), max(Vec3(ffmax(a.x, b.x), ffmax(a.y, b.y), ffmax(a.z, b.z))) { }
+	__host__ __device__ AABB(const AABB& a, const AABB& b) : min(Vec3(ffmin(a.min.x, b.min.x), ffmin(a.min.y, b.min.y), ffmin(a.min.z, b.min.z))), max(Vec3(ffmax(a.max.x, b.max.x), ffmax(a.max.y, b.max.y), ffmax(a.max.z, b.max.z))) { }
+
+	__host__ __device__ bool Hit(const Ray3& ray, float tMin, float tMax) const
+	{
+		for (int a = 0; a < 3; a++)
+		{
+			float inv = 1.0f / ray.Direction()[a];
+			float t0 = ffmin((min[a] - ray.Origin()[a]) * inv, (max[a] - ray.Origin()[a]) * inv);
+			float t1 = ffmax((max[a] - ray.Origin()[a]) * inv, (max[a] - ray.Origin()[a]) * inv);
+			tMin = ffmax(t0, tMin);
+			tMax = ffmin(t1, tMax);
+			if (tMax <= tMin) return false;
+		}
+		return true;
+	}
+
+	Vec3 min, max;
+
+private:
+	__host__ __device__ static constexpr float ffmin(float a, float b) { return a < b ? a : b; }
+	__host__ __device__ static constexpr float ffmax(float a, float b) { return a > b ? a : b; }
+};
+#pragma endregion
+
 #include "cuShyllGenerated.txt"
+
+__host__ void swap(Hittable* a, Hittable* b)
+{
+	Hittable temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
+__host__ void sort(Hittable* hittables, size_t numHittables, bool (*cmp)(const AABB& a, const AABB& b))
+{
+	size_t n = numHittables;
+	if (numHittables < 2) return;
+	do
+	{
+		size_t newn = 0;
+		AABB a, b;
+		for (size_t i = 1; i <= n - 1; i++)
+		{
+			hittables[i - 1].BoundingBox(a);
+			hittables[i].BoundingBox(b);
+			if (cmp(a, b))
+			{
+				swap(&hittables[i - 1], &hittables[i]);
+				newn = i;
+			}
+		}
+		n = newn;
+	}
+	while (n > 1);
+}
+
+__host__ constexpr bool xcmp(const AABB& a, const AABB& b) { return a.min.x - b.min.x >= 0.0f; }
+__host__ constexpr bool ycmp(const AABB& a, const AABB& b) { return a.min.y - b.min.y >= 0.0f; }
+__host__ constexpr bool zcmp(const AABB& a, const AABB& b) { return a.min.z - b.min.z >= 0.0f; }
+
+__host__ void sort(Hittable* hittables, size_t numHittables)
+{
+	switch (rand() % 6)
+	{
+	case 0:
+	case 1:
+		sort(hittables, numHittables, &xcmp);
+		return;
+	case 2:
+	case 3:
+		sort(hittables, numHittables, &ycmp);
+		return;
+	default:
+		sort(hittables, numHittables, &zcmp);
+		return;
+	}
+}
+
+__host__ Hittable BVHNode(Hittable* left, Hittable* right)
+{
+	AABB lb, rb;
+	left->BoundingBox(lb);
+	right->BoundingBox(rb);
+	return BVHNode(left, right, AABB(lb, rb));
+}
+
+__host__ Hittable SetupBVH(Hittable* hittables, size_t numHittables, Hittable* branchHittables, size_t numBranchHittables, size_t& offset)
+{
+	if (numBranchHittables == 1)
+	{
+		return BVHNode(&branchHittables[0], &branchHittables[0]);
+	}
+	else if (numBranchHittables == 2)
+	{
+		return BVHNode(&branchHittables[0], &branchHittables[1]);
+	}
+	else
+	{
+		sort(branchHittables, numBranchHittables);
+		size_t left = offset;
+		hittables[offset++] = SetupBVH(hittables, numHittables, branchHittables, numBranchHittables / 2, offset);
+		size_t right = offset;
+		hittables[offset++] = SetupBVH(hittables, numHittables, branchHittables + numBranchHittables / 2, numBranchHittables - numBranchHittables / 2, offset);
+		return BVHNode(&hittables[left], &hittables[right]);
+	}
+}
+
+// Assumes that hittables is 2 * numHittables - 1 elements long.
+__host__ void SetupBVH(Hittable* hittables, size_t numHittables)
+{
+	if (numHittables == 1) return;
+	if (numHittables == 2)
+	{
+		hittables[2] = BVHNode(&hittables[0], &hittables[1]);
+		return;
+	}
+	size_t offset = numHittables;
+	Hittable temp = SetupBVH(hittables, numHittables, hittables, numHittables, offset);
+	hittables[offset] = temp;
+}
 
 __device__ bool listHit(Hittable* hittables, int numHittables, Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
 {
@@ -297,48 +433,53 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 int main()
 {
-	const int width = 600, height = 600, samples = 1000;
+	const int width = 384, height = 384, samples = 400;
+	const size_t nTextures = 4;
+	const size_t nMaterials = 4;
+	const size_t nHittables = 4;
 
 	Vec3* cols;
 	gpuErrchk(cudaMallocManaged(&cols, width * height * sizeof(Vec3)));
 
-	dim3 threadsPerBlock(12, 12);
-	dim3 numBlocks(12, 12);
+	dim3 threadsPerBlock(16, 16);
+	dim3 numBlocks(8, 8);
 
 	Camera cam = Camera(Vec3(0.0f, 0.9f, -2.5f), Vec3(0.0f, 0.1f, 2.5f), Vec3(0.0f, 1.0f, 0.0f), 1.3f, width / float(height));
 
 	Texture* tlist;
-	gpuErrchk(cudaMallocManaged(&tlist, 4 * sizeof(Texture)));
+	gpuErrchk(cudaMallocManaged(&tlist, nTextures * sizeof(Texture)));
 	tlist[0] = ConstantColor(Vec3(0.2f, 0.8f, 0.4f));
 	tlist[1] = ConstantColor(Vec3(1.0f));
 	tlist[2] = ConstantColor(Vec3(0.8f, 0.3f, 0.1f));
 	tlist[3] = ConstantColor(Vec3(2.5f));
 
 	Material* mlist;
-	gpuErrchk(cudaMallocManaged(&mlist, 4 * sizeof(Material)));
+	gpuErrchk(cudaMallocManaged(&mlist, nMaterials * sizeof(Material)));
 	mlist[0] = Lambertian(&tlist[0]);
 	mlist[1] = Dieletric(5.0f, &tlist[1]);
 	mlist[2] = Lambertian(&tlist[2]);
 	mlist[3] = DiffuseLight(&tlist[3]);
 
 	Hittable* hlist;
-	gpuErrchk(cudaMallocManaged(&hlist, 4 * sizeof(Hittable)));
+	gpuErrchk(cudaMallocManaged(&hlist, (2 * nHittables - 1) * sizeof(Hittable)));
 	hlist[0] = Sphere(Vec3(0.0f, -100.0f, 0.0f), 100.0f, &mlist[0]);
 	hlist[1] = Sphere(Vec3(0.0f, 0.6f, 0.0f), 0.4f, &mlist[1]);
 	hlist[2] = RectangularPlane(-0.4f, 0.4f, -0.4f, 0.4f, 0.15f, 0, 1, &mlist[2]);
 	hlist[3] = Sphere(Vec3(0.0f, 3.5f, -0.2f), 1.5f, &mlist[3]);
 
+	SetupBVH(hlist, nHittables);
+
 	for (int i = 0; i < width; i += threadsPerBlock.x * numBlocks.x)
 	{
 		for (int j = 0; j < height; j += threadsPerBlock.y * numBlocks.y)
 		{
-			render<<<numBlocks, threadsPerBlock>>>(hlist, 4, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x, j + threadsPerBlock.y * numBlocks.y);
+			render<<<numBlocks, threadsPerBlock>>>(hlist, nHittables, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x, j + threadsPerBlock.y * numBlocks.y);
 			gpuErrchk(cudaPeekAtLastError());
 			gpuErrchk(cudaDeviceSynchronize());
 		}
 	}
 
-	saveImage(width, height, cols, "test5.ppm");
+	saveImage(width, height, cols, "test.ppm");
 	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 
 	cudaDeviceReset();

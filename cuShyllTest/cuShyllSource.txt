@@ -99,6 +99,7 @@ subclass Dieletric implements Material
 
 baseclass Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
+- bool BoundingBox(AABB& bbox)
 
 subclass Sphere implements Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
@@ -130,6 +131,11 @@ subclass Sphere implements Hittable
 		}
 	}
 	return false;
+}
+- bool BoundingBox(AABB& bbox)
+{
+	bbox = AABB(center - Vec3(radius), center + Vec3(radius));
+	return true;
 }
 = Vec3 center
 = float radius
@@ -212,6 +218,23 @@ subclass RectangularPlane implements Hittable
 		return false;
 	}
 }
+- bool BoundingBox(AABB& bbox)
+{
+	switch (plane)
+	{
+	case 0: // yz plane
+		bbox = AABB(Vec3(k - 0.001f, a1, b1), Vec3(k + 0.001f, a2, b2));
+		return true;
+	case 1: // xz plane
+		bbox = AABB(Vec3(a1, k - 0.001f, b1), Vec3(a2, k + 0.001f, b2));
+		return true;
+	case 2: // xy plane
+		bbox = AABB(Vec3(a1, a2, k - 0.001f), Vec3(a2, b2, k + 0.001f));
+		return true;
+	default:
+		return false;
+	}
+}
 = float a1
 = float a2
 = float b1
@@ -220,3 +243,61 @@ subclass RectangularPlane implements Hittable
 = int normalType
 = int plane
 = Material* material
+
+subclass BVHNode implements Hittable
+- bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
+{
+	float t1, t2;
+	Vec3 p1, p2, n1, n2;
+	Material* m1;
+	Material* m2;
+	if (box.Hit(ray, tMin, tMax))
+	{
+		bool hitLeft = left->Hit(ray, tMin, tMax, t1, p1, n1, m1);
+		bool hitRight = right->Hit(ray, tMin, tMax, t2, p2, n2, m2);
+		if (hitLeft && hitRight)
+		{
+			if (t1 < t2)
+			{
+				t = t1;
+				point = p1;
+				normal = n1;
+				mat = m1;
+				return true;
+			}
+			else
+			{
+				t = t2;
+				point = p2;
+				normal = n2;
+				mat = m2;
+				return true;
+			}
+		}
+		else if (hitLeft)
+		{
+			t = t1;
+			point = p1;
+			normal = n1;
+			mat = m1;
+			return true;
+		}
+		else if (hitRight)
+		{
+			t = t2;
+			point = p2;
+			normal = n2;
+			mat = m2;
+			return true;
+		}
+	}
+	return false;
+}
+- bool BoundingBox(AABB& bbox)
+{
+	bbox = box;
+	return true;
+}
+= Hittable* left
+= Hittable* right
+= AABB box
