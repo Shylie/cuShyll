@@ -14,6 +14,7 @@ public:
 
 private:
 	std::string ConvertHierarchy(size_t base);
+	std::string ConvertBaseDataUnion(size_t base);
 	std::string ConvertDataUnion(size_t base, size_t sub);
 	std::string ConvertDataUnionConstructor(size_t base, size_t sub);
 	std::string ConvertSubMethod(size_t base, size_t sub, bool forward);

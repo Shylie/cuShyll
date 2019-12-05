@@ -22,6 +22,7 @@ std::string Converter::operator()()
 std::string Converter::ConvertHierarchy(size_t base)
 {
 	std::string temp = "struct " + hierarchies.at(base).base.name + ";\nunion " + hierarchies.at(base).base.name + "Data\n{\n";
+	temp += ConvertBaseDataUnion(base) + "\n";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
 		temp += ConvertDataUnion(base, i) + "\n";
@@ -44,6 +45,17 @@ std::string Converter::ConvertHierarchy(size_t base)
 	{
 		temp += "\n" + ConvertSubFactory(base, i);
 	}
+	return temp;
+}
+
+std::string Converter::ConvertBaseDataUnion(size_t base)
+{
+	std::string temp = "\tstruct BaseData\n\t{";
+	for (size_t i = 0; i < hierarchies.at(base).base.data.size(); i++)
+	{
+		temp += "\n\t\t" + hierarchies.at(base).base.data.at(i).type + " " + hierarchies.at(base).base.data.at(i).name + ";";
+	}
+	temp += "\n\t} Base;";
 	return temp;
 }
 
