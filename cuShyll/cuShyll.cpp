@@ -4,6 +4,10 @@
 #include "Parser.h"
 #include "Converter.h"
 
+#include <thread>
+#include <future>
+#include <chrono>
+
 /*
 baseclass Material
 - bool DoSomething(int arg)
@@ -119,20 +123,29 @@ bool MetalDoSomethingElse(int arg2, MaterialData data)
 
 int main(int argc, char** argv)
 {
-	if (argc != 3) return -1;
+	if (argc != 3) return EXIT_FAILURE;
 
 	std::ifstream in;
 	in.open(argv[1]);
-	if (!in.is_open()) return -1;
+	if (!in.is_open()) return EXIT_FAILURE;
 
 	std::string str(static_cast<std::stringstream const&>(std::stringstream() << in.rdbuf()).str());
 
 	Converter converter(str);
-	std::ofstream file;
-	file.open(argv[2]);
-	if (!file.is_open()) return -1;
-	file << converter();
-	file.close();
 
-	return 0;
+	auto output = std::async(std::launch::async, &Converter::operator(), &converter);
+
+	if (output.wait_for(std::chrono::seconds::duration(10)) == std::future_status::ready)
+	{
+		std::ofstream file;
+		file.open(argv[2]);
+		if (!file.is_open()) return EXIT_FAILURE;
+		file << converter();
+		file.close();
+		return EXIT_SUCCESS;
+	}
+	else
+	{
+		return EXIT_FAILURE;
+	}
 }
