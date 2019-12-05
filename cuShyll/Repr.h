@@ -13,11 +13,14 @@ struct BaseMethodRepr final
 	std::string name;
 	std::string rettype;
 	std::vector<VarRepr> args;
+	std::string contents;
+	bool hasContents = false;
 };
 
 struct SubMethodRepr final
 {
 	std::string contents;
+	bool hasContents = true;
 	BaseMethodRepr base;
 };
 

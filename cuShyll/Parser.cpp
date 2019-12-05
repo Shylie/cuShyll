@@ -72,6 +72,14 @@ void Parser::BaseMethod(Hierarchy& hierarchy)
 		hierarchy.base.methods.back().args.back().name = previous.lexeme;
 		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen) ErrorAt(current, "Expected ',' inbetween parameters.");
 	}
+
+	if (Match(Token::Type::LeftBrace))
+	{
+		Consume(Token::Type::CodeBlock, "Expected code block after '{'.");
+		hierarchy.base.methods.back().contents = previous.lexeme;
+		hierarchy.base.methods.back().hasContents = true;
+		Consume(Token::Type::RightBrace, "Expected '}' after code block.");
+	}
 }
 
 void Parser::BaseData(Hierarchy& hierarchy)
@@ -128,45 +136,86 @@ void Parser::SubMethod(SubClassRepr& subclass)
 		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen) ErrorAt(current, "Expected ',' inbetween parameters.");
 	}
 
-	Consume(Token::Type::LeftBrace, "Expected '{' after subclass method declaration.");
-	Consume(Token::Type::CodeBlock, "Expected code block after '{'.");
-	std::string code = previous.lexeme;
-	Consume(Token::Type::RightBrace, "Expected '}' after code block.");
-
-	bool doError = true;
-	size_t matchidx = 0;
-	for (size_t i = 0; i < subclass.base.methods.size(); i++)
+	if (!Match(Token::Type::LeftBrace))
 	{
-		if (subclass.base.methods.at(i).name != name.lexeme) continue;
-		if (subclass.base.methods.at(i).rettype != rettype) continue;
-		bool paramsMatch = (subclass.base.methods.at(i).args.size() == args.size());
-		if (paramsMatch)
+		bool doError = true;
+		size_t matchidx = 0;
+		for (size_t i = 0; i < subclass.base.methods.size(); i++)
 		{
-			for (size_t j = 0; j < subclass.base.methods.at(i).args.size(); j++)
+			if (subclass.base.methods.at(i).name != name.lexeme) continue;
+			if (subclass.base.methods.at(i).rettype != rettype) continue;
+			bool paramsMatch = (subclass.base.methods.at(i).args.size() == args.size());
+			if (paramsMatch)
 			{
-				if (subclass.base.methods.at(i).args.at(j).type != args.at(j).type)
+				for (size_t j = 0; j < subclass.base.methods.at(i).args.size(); j++)
 				{
-					paramsMatch = false;
+					if (subclass.base.methods.at(i).args.at(j).type != args.at(j).type)
+					{
+						paramsMatch = false;
+						break;
+					}
+				}
+				if (paramsMatch)
+				{
+					doError = false;
+					matchidx = i;
 					break;
 				}
 			}
-			if (paramsMatch)
-			{
-				doError = false;
-				matchidx = i;
-				break;
-			}
 		}
-	}
-	if (doError)
-	{
-		ErrorAt(name, "Undefined baseclass method '" + name.lexeme + "'.");
+		if (doError || !subclass.base.methods.at(matchidx).hasContents)
+		{
+			ErrorAt(name, "Expected method definition for virtual method '" + name.lexeme + "'.");
+		}
+		else
+		{
+			subclass.methods.emplace_back();
+			subclass.methods.back().base = subclass.base.methods.at(matchidx);
+			subclass.methods.back().hasContents = false;
+
+		}
 	}
 	else
 	{
-		subclass.methods.emplace_back();
-		subclass.methods.back().base = subclass.base.methods.at(matchidx);
-		subclass.methods.back().contents = code;
+		Consume(Token::Type::CodeBlock, "Expected code block after '{'.");
+		std::string code = previous.lexeme;
+		Consume(Token::Type::RightBrace, "Expected '}' after code block.");
+
+		bool doError = true;
+		size_t matchidx = 0;
+		for (size_t i = 0; i < subclass.base.methods.size(); i++)
+		{
+			if (subclass.base.methods.at(i).name != name.lexeme) continue;
+			if (subclass.base.methods.at(i).rettype != rettype) continue;
+			bool paramsMatch = (subclass.base.methods.at(i).args.size() == args.size());
+			if (paramsMatch)
+			{
+				for (size_t j = 0; j < subclass.base.methods.at(i).args.size(); j++)
+				{
+					if (subclass.base.methods.at(i).args.at(j).type != args.at(j).type)
+					{
+						paramsMatch = false;
+						break;
+					}
+				}
+				if (paramsMatch)
+				{
+					doError = false;
+					matchidx = i;
+					break;
+				}
+			}
+		}
+		if (doError)
+		{
+			ErrorAt(name, "Undefined baseclass method '" + name.lexeme + "'.");
+		}
+		else
+		{
+			subclass.methods.emplace_back();
+			subclass.methods.back().base = subclass.base.methods.at(matchidx);
+			subclass.methods.back().contents = code;
+		}
 	}
 }
 

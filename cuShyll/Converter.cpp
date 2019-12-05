@@ -126,7 +126,31 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 
 std::string Converter::ConvertBase(size_t base)
 {
-	std::string temp = "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{";
+	std::string temp = "";
+	for (size_t i = 0; i < hierarchies.at(base).base.methods.size(); i++)
+	{
+		if (hierarchies.at(base).base.methods.at(i).hasContents)
+		{
+			temp += "__host__ __device__ " + hierarchies.at(base).base.methods.at(i).rettype + " ";
+			temp += hierarchies.at(base).base.name + hierarchies.at(base).base.methods.at(i).name + "Base(";
+			for (size_t j = 0; j < hierarchies.at(base).base.methods.at(i).args.size(); j++)
+			{
+				temp += hierarchies.at(base).base.methods.at(i).args.at(j).type + " ";
+				temp += hierarchies.at(base).base.methods.at(i).args.at(j).name + ", ";
+			}
+			temp += "const " + hierarchies.at(base).base.name + "Data& data)\n{";
+			std::string convertedContents = hierarchies.at(base).base.methods.at(i).contents;
+			std::string unionName = "data.BaseData.$&";
+			for (size_t j = 0; j < hierarchies.at(base).base.data.size(); j++)
+			{
+				std::regex data("\\b" + hierarchies.at(base).base.data.at(j).name + "\\b");
+				convertedContents = std::regex_replace(convertedContents, data, unionName);
+			}
+			temp += convertedContents;
+			temp += "}\n";
+		}
+	}
+	temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
 		temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + ",";
@@ -153,6 +177,7 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 	temp += ")\n\t{\n\t\tswitch (type)\n\t\t{";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
+		if (!hierarchies.at(base).subclasses.at(i).methods.at(method).hasContents) continue;
 		temp += "\n\t\tcase Type::" + hierarchies.at(base).subclasses.at(i).name + ":";
 		temp += "\n\t\t\treturn " + hierarchies.at(base).subclasses.at(i).name + hierarchies.at(base).base.methods.at(method).name + "(";
 		for (size_t j = 0; j < hierarchies.at(base).base.methods.at(method).args.size(); j++)
@@ -161,7 +186,21 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 		}
 		temp += "data);";
 	}
-	temp += "\n\t\tdefault:\n\t\t\treturn " + hierarchies.at(base).base.methods.at(method).rettype + "();\n\t\t}\n\t}";
+	temp += "\n\t\tdefault:\n\t\t\treturn ";
+	if (hierarchies.at(base).base.methods.at(method).hasContents)
+	{
+		temp += hierarchies.at(base).base.name + hierarchies.at(base).base.methods.at(method).name + "Base(";
+		for (size_t j = 0; j < hierarchies.at(base).base.methods.at(method).args.size(); j++)
+		{
+			temp += hierarchies.at(base).base.methods.at(method).args.at(j).name + ", ";
+		}
+		temp += "data);";
+	}
+	else
+	{
+		temp += hierarchies.at(base).base.methods.at(method).rettype + "();";
+	}
+	temp += "\n\t\t}\n\t}";
 	return temp;
 }
 
