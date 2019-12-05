@@ -91,7 +91,8 @@ Token Tokenizer::Next()
 		{
 			Advance();
 		}
-		while ((IsAlpha(Peek()) || IsNumeric(Peek()) || Peek() == '*' || Peek() == '&') && !IsAtEnd());
+		while ((IsAlpha(Peek()) || IsNumeric(Peek())) && !IsAtEnd());
+		if (Peek() == '*' || Peek() == '&') Advance();
 
 		bool atEnd = IsAtEnd();
 		if (atEnd) current++;
@@ -100,6 +101,29 @@ Token Tokenizer::Next()
 		if (lexeme == "baseclass") return Token(Token::Type::Baseclass, lexeme, line);
 		if (lexeme == "subclass") return Token(Token::Type::Subclass, lexeme, line);
 		if (lexeme == "implements") return Token(Token::Type::Implements, lexeme, line);
+		if (lexeme == "const" && Peek() == ' ' && IsAlpha(Peek(1)))
+		{
+			int nstart = current;
+			do
+			{
+				Advance();
+			} while ((IsAlpha(Peek()) || IsNumeric(Peek())) && !IsAtEnd());
+			if (Peek() == '*' || Peek() == '&') Advance();
+
+			atEnd = IsAtEnd();
+			if (atEnd) current++;
+			std::string nlexeme = source.substr(start, current - nstart);
+			if (atEnd) current--;
+
+			if (nlexeme == "baseclass") return Token(Token::Type::Error, lexeme, line);
+			if (nlexeme == "subclass") return Token(Token::Type::Error, lexeme, line);
+			if (nlexeme == "implements") return Token(Token::Type::Error, lexeme, line);
+
+			if (atEnd) current++;
+			lexeme = source.substr(start, current - start);
+			if (atEnd) current--;
+			return Token(Token::Type::Identifier, lexeme, line);
+		}
 		return Token(Token::Type::Identifier, lexeme, line);
 	}
 
@@ -113,6 +137,7 @@ bool Tokenizer::IsAtEnd() const
 
 char Tokenizer::Peek(int ahead) const
 {
+	if (current + ahead >= source.length()) return '\0';
 	return source.at(current + ahead);
 }
 
