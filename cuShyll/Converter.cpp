@@ -89,6 +89,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 	std::string temp = "";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).methods.size(); i++)
 	{
+		if (!hierarchies.at(base).subclasses.at(sub).methods.at(i).hasContents) continue;
 		temp += "__host__ __device__ " + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.rettype + " ";
 		temp += hierarchies.at(base).subclasses.at(sub).name + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.name + "(";
 		for (size_t j = 0; j < hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.size(); j++)

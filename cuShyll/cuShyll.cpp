@@ -133,9 +133,10 @@ int main(int argc, char** argv)
 
 	Converter converter(str);
 
-	auto output = std::async(std::launch::async, &Converter::operator(), &converter);
+	auto output = std::async(&Converter::operator(), &converter);
 
-	if (output.wait_for(std::chrono::seconds::duration(10)) == std::future_status::ready)
+	auto res = output.wait_for(std::chrono::seconds(5));
+	if (res == std::future_status::ready)
 	{
 		std::ofstream file;
 		file.open(argv[2]);
