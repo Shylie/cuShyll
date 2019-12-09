@@ -5,8 +5,10 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <iomanip>
 
 #define MAX_DEPTH 100
+//#define USE_BVH
 
 #pragma region RANDOM
 __host__ __device__ float randLCG(uint32_t* seed)
@@ -224,7 +226,7 @@ public:
 		{
 			float inv = 1.0f / ray.Direction()[a];
 			float t0 = ffmin((min[a] - ray.Origin()[a]) * inv, (max[a] - ray.Origin()[a]) * inv);
-			float t1 = ffmax((max[a] - ray.Origin()[a]) * inv, (max[a] - ray.Origin()[a]) * inv);
+			float t1 = ffmax((min[a] - ray.Origin()[a]) * inv, (max[a] - ray.Origin()[a]) * inv);
 			tMin = ffmax(t0, tMin);
 			tMax = ffmin(t1, tMax);
 			if (tMax <= tMin) return false;
@@ -324,17 +326,18 @@ __host__ Hittable SetupBVH(Hittable* hittables, size_t numHittables, Hittable* b
 }
 
 // Assumes that hittables is 2 * numHittables - 1 elements long.
-__host__ void SetupBVH(Hittable* hittables, size_t numHittables)
+__host__ size_t SetupBVH(Hittable* hittables, size_t numHittables)
 {
-	if (numHittables == 1) return;
+	if (numHittables == 1) return 0;
 	if (numHittables == 2)
 	{
 		hittables[2] = BVHNode(&hittables[0], &hittables[1]);
-		return;
+		return 2;
 	}
 	size_t offset = numHittables;
 	Hittable temp = SetupBVH(hittables, numHittables, hittables, numHittables, offset);
 	hittables[offset] = temp;
+	return offset;
 }
 
 __device__ bool listHit(Hittable* hittables, int numHittables, Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
@@ -406,7 +409,7 @@ __global__ void render(Hittable* hittables, int numHittables, Camera cam, Vec3* 
 			{
 				float u = (i + randLCG(&seed)) / float(width), v = (j + randLCG(&seed)) / float(height);
 				Ray3 ray = cam.GetRay(u, v);
-				wangHash(&seed);
+				//wangHash(&seed);
 				overallCol = overallCol + color(&seed, hittables, numHittables, ray);
 			}
 
@@ -433,10 +436,10 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 int main()
 {
-	const int width = 384, height = 384, samples = 400;
-	const size_t nTextures = 4;
-	const size_t nMaterials = 4;
-	const size_t nHittables = 4;
+	constexpr int width = 384, height = 384, samples = 400, linemax = 75;
+	constexpr size_t nTextures = 4;
+	constexpr size_t nMaterials = 4;
+	constexpr size_t nHittables = 4;
 
 	Vec3* cols;
 	gpuErrchk(cudaMallocManaged(&cols, width * height * sizeof(Vec3)));
@@ -461,26 +464,41 @@ int main()
 	mlist[3] = DiffuseLight(&tlist[3]);
 
 	Hittable* hlist;
+#ifdef USE_BVH
 	gpuErrchk(cudaMallocManaged(&hlist, (2 * nHittables - 1) * sizeof(Hittable)));
+#else
+	gpuErrchk(cudaMallocManaged(&hlist, nHittables * sizeof(Hittable)));
+#endif
 	hlist[0] = Sphere(Vec3(0.0f, -100.0f, 0.0f), 100.0f, &mlist[0]);
 	hlist[1] = Sphere(Vec3(0.0f, 0.6f, 0.0f), 0.4f, &mlist[1]);
 	hlist[2] = RectangularPlane(-0.4f, 0.4f, -0.4f, 0.4f, 0.15f, 0, 1, &mlist[2]);
 	hlist[3] = Sphere(Vec3(0.0f, 3.5f, -0.2f), 1.5f, &mlist[3]);
 
-	SetupBVH(hlist, nHittables);
+#ifdef USE_BVH
+	size_t offset = SetupBVH(hlist, nHittables);
+#endif
 
+	int done = 0;
 	for (int i = 0; i < width; i += threadsPerBlock.x * numBlocks.x)
 	{
 		for (int j = 0; j < height; j += threadsPerBlock.y * numBlocks.y)
 		{
+
+			std::cout << '\r' << '[' << std::left << std::setw(linemax) << std::setfill('-') << std::string(int(linemax * ((done + 1) / float(width * height))), '#') << ']';
+#ifdef USE_BVH
+			render<<<numBlocks, threadsPerBlock>>>(&hlist[offset], 1, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x, j + threadsPerBlock.y * numBlocks.y);
+#else
 			render<<<numBlocks, threadsPerBlock>>>(hlist, nHittables, cam, cols, width, height, samples, i, j, i + threadsPerBlock.x * numBlocks.x, j + threadsPerBlock.y * numBlocks.y);
+#endif
 			gpuErrchk(cudaPeekAtLastError());
 			gpuErrchk(cudaDeviceSynchronize());
+			done += threadsPerBlock.x * numBlocks.x * threadsPerBlock.y * numBlocks.y;
 		}
 	}
+	std::cout << '\r' << '[' << std::left << std::setw(linemax) << std::setfill('-') << std::string(int(linemax* ((done + 1) / float(width * height))), '#') << ']';
+	std::cout << "\n" << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 
 	saveImage(width, height, cols, "test.ppm");
-	std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - startTime).count() << "\n";
 
 	cudaDeviceReset();
 
