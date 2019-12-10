@@ -106,7 +106,7 @@
       <RootFolder>
       </RootFolder>
       <Message>custom build step dude</Message>
-      <Inputs>cuShyllSource.txt</Inputs>
+      <Inputs>cuShyllSource.txt;$(SolutionDir)x64\Release\cuShyll.exe</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -126,7 +126,7 @@
       <RootFolder>
       </RootFolder>
       <Message>custom build step dude</Message>
-      <Inputs>cuShyllSource.txt</Inputs>
+      <Inputs>cuShyllSource.txt;$(SolutionDir)x64\Release\cuShyll.exe</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -149,7 +149,7 @@
       <RootFolder>
       </RootFolder>
       <Message>custom build step dude</Message>
-      <Inputs>cuShyllSource.txt</Inputs>
+      <Inputs>cuShyllSource.txt;$(SolutionDir)x64\Release\cuShyll.exe</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -173,7 +173,7 @@
       <RootFolder>
       </RootFolder>
       <Message>custom build step dude</Message>
-      <Inputs>cuShyllSource.txt</Inputs>
+      <Inputs>cuShyllSource.txt;$(SolutionDir)x64\Release\cuShyll.exe</Inputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -444,7 +444,7 @@ int main()
 	Vec3* cols;
 	gpuErrchk(cudaMallocManaged(&cols, width * height * sizeof(Vec3)));
 
-	dim3 threadsPerBlock(16, 16);
+	dim3 threadsPerBlock(8, 8);
 	dim3 numBlocks(8, 8);
 
 	Camera cam = Camera(Vec3(0.0f, 0.9f, -2.5f), Vec3(0.0f, 0.1f, 2.5f), Vec3(0.0f, 1.0f, 0.0f), 1.3f, width / float(height));

@@ -10,7 +10,7 @@ Parser::Parser(std::string source) : tokenizer(source), hadError(false)
 
 bool Parser::Parse(std::vector<Hierarchy>& hierarchies)
 {
-	while (!tokenizer.IsAtEnd())
+	while (!tokenizer.IsAtEnd() && !hadError)
 	{
 		if (Match(Token::Type::Error))
 		{
@@ -28,6 +28,8 @@ bool Parser::Parse(std::vector<Hierarchy>& hierarchies)
 			continue;
 		}
 	}
+
+	if (hadError) return false;
 
 	if (!tokenizer.IsAtEnd()) ErrorAt(current, "Expected end of file.");
 
@@ -70,7 +72,11 @@ void Parser::BaseMethod(Hierarchy& hierarchy)
 		hierarchy.base.methods.back().args.back().type = previous.lexeme;
 		Consume(Token::Type::Identifier, "Expected name after type.");
 		hierarchy.base.methods.back().args.back().name = previous.lexeme;
-		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen) ErrorAt(current, "Expected ',' inbetween parameters.");
+		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen)
+		{
+			ErrorAt(current, "Expected ',' inbetween parameters.");
+			break;
+		}
 	}
 
 	if (Match(Token::Type::LeftBrace))
@@ -114,6 +120,11 @@ void Parser::SubClass()
 		{
 			SubData(hierarchy.subclasses.back());
 		}
+		else
+		{
+			ErrorAt(current, "Unexpected token.");
+			break;
+		}
 	}
 }
 
@@ -133,7 +144,11 @@ void Parser::SubMethod(SubClassRepr& subclass)
 		args.back().type = previous.lexeme;
 		Consume(Token::Type::Identifier, "Expected name after type.");
 		args.back().name = previous.lexeme;
-		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen) ErrorAt(current, "Expected ',' inbetween parameters.");
+		if (!Match(Token::Type::Comma) && current.type != Token::Type::RightParen)
+		{
+			ErrorAt(current, "Expected ',' inbetween parameters.");
+			break;
+		}
 	}
 
 	if (!Match(Token::Type::LeftBrace))
@@ -246,7 +261,7 @@ void Parser::Consume(Token::Type type, std::string message)
 {
 	if (current.type != type)
 	{
-		ErrorAt(current, message);
+		ErrorAt(current.lexeme.length() > 0 ? current : previous, message);
 	}
 	else
 	{
@@ -256,7 +271,7 @@ void Parser::Consume(Token::Type type, std::string message)
 
 void Parser::ErrorAt(Token token, std::string message)
 {
-	std::cerr << "Error on line " << token.line << "\nat " << token.lexeme << "\n\n" << message << "\n";
+	std::cerr << "Error on line " << (token.line + 1) << ": " << message << "\nat: " << token.lexeme << "\n";
 	hadError = true;
 }
 

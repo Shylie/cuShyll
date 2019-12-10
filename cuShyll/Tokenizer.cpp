@@ -92,7 +92,7 @@ Token Tokenizer::Next()
 			Advance();
 		}
 		while ((IsAlpha(Peek()) || IsNumeric(Peek())) && !IsAtEnd());
-		if (Peek() == '*' || Peek() == '&') Advance();
+		while (Peek() == '&' || Peek() == '*') Advance();
 
 		bool atEnd = IsAtEnd();
 		if (atEnd) current++;
@@ -110,6 +110,7 @@ Token Tokenizer::Next()
 			} while ((IsAlpha(Peek()) || IsNumeric(Peek())) && !IsAtEnd());
 
 			while (Peek() == '&' || Peek() == '*') Advance();
+
 
 			atEnd = IsAtEnd();
 			if (atEnd) current++;
