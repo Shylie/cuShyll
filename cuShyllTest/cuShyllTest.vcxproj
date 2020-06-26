@@ -101,7 +101,7 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <CustomBuildStep>
-      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt</Command>
+      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt "__host__ __device__"</Command>
       <Outputs>cuShyllGenerated.txt</Outputs>
       <RootFolder>
       </RootFolder>
@@ -121,7 +121,7 @@
       <AdditionalDependencies>$(CudaToolkitLibDir)\cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt</Command>
+      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt "__host__ __device__"</Command>
       <Outputs>cuShyllGenerated.txt</Outputs>
       <RootFolder>
       </RootFolder>
@@ -144,7 +144,7 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
     </CudaCompile>
     <CustomBuildStep>
-      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt</Command>
+      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt "__host__ __device__"</Command>
       <Outputs>cuShyllGenerated.txt</Outputs>
       <RootFolder>
       </RootFolder>
@@ -168,7 +168,7 @@
       <AdditionalDependencies>$(CudaToolkitLibDir)\cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt</Command>
+      <Command>$(SolutionDir)x64\Release\cuShyll.exe cuShyllSource.txt cuShyllGenerated.txt "__host__ __device__"</Command>
       <Outputs>cuShyllGenerated.txt</Outputs>
       <RootFolder>
       </RootFolder>

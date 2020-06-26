@@ -8,7 +8,7 @@
 class Converter final
 {
 public:
-	Converter(std::string source);
+	Converter(const std::string& source, const char* prefix = nullptr);
 
 	std::string operator()();
 
@@ -23,4 +23,5 @@ private:
 	std::string ConvertSubFactory(size_t base, size_t sub);
 
 	std::vector<Hierarchy> hierarchies;
+	const char* prefix;
 };

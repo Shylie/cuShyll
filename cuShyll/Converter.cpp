@@ -4,7 +4,7 @@
 #include "Repr.h"
 #include "Parser.h"
 
-Converter::Converter(std::string source)
+Converter::Converter(const std::string& source, const char* prefix) : prefix(prefix)
 {
 	Parser(source).Parse(hierarchies);
 }
@@ -81,7 +81,7 @@ std::string Converter::ConvertDataUnion(size_t base, size_t sub)
 
 std::string Converter::ConvertDataUnionConstructor(size_t base, size_t sub)
 {
-	return "\t__host__ __device__ " + hierarchies.at(base).base.name + "Data(" + hierarchies.at(base).subclasses.at(sub).name + "Data data) : " + hierarchies.at(base).subclasses.at(sub).name + "(data) { }";
+	return (prefix ? "\t" + std::string(prefix) + " " : "\t") + hierarchies.at(base).base.name + "Data(" + hierarchies.at(base).subclasses.at(sub).name + "Data data) : " + hierarchies.at(base).subclasses.at(sub).name + "(data) { }";
 }
 
 std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
@@ -90,7 +90,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).methods.size(); i++)
 	{
 		if (!hierarchies.at(base).subclasses.at(sub).methods.at(i).hasContents) continue;
-		temp += "__host__ __device__ " + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.rettype + " ";
+		temp += (prefix ? std::string(prefix) + " " : "") + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.rettype + " ";
 		temp += hierarchies.at(base).subclasses.at(sub).name + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.name + "(";
 		for (size_t j = 0; j < hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.size(); j++)
 		{
@@ -132,7 +132,7 @@ std::string Converter::ConvertBase(size_t base)
 	{
 		if (hierarchies.at(base).base.methods.at(i).hasContents)
 		{
-			temp += "__host__ __device__ " + hierarchies.at(base).base.methods.at(i).rettype + " ";
+			temp += (prefix ? std::string(prefix) + " " : "") + hierarchies.at(base).base.methods.at(i).rettype + " ";
 			temp += hierarchies.at(base).base.name + hierarchies.at(base).base.methods.at(i).name + "Base(";
 			for (size_t j = 0; j < hierarchies.at(base).base.methods.at(i).args.size(); j++)
 			{
@@ -157,7 +157,7 @@ std::string Converter::ConvertBase(size_t base)
 		temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + ",";
 	}
 	temp += "\n\t} type;\n\n\t" + hierarchies.at(base).base.name + "Data data;";
-	temp += "\n\t__host__ __device__ " + hierarchies.at(base).base.name + "(Type type, " + hierarchies.at(base).base.name + "Data data) : type(type), data(data) { }";
+	temp += (prefix ? "\n\t" + std::string(prefix) + " " : "\n\t") + hierarchies.at(base).base.name + "(Type type, " + hierarchies.at(base).base.name + "Data data) : type(type), data(data) { }";
 	for (size_t i = 0; i < hierarchies.at(base).base.methods.size(); i++)
 	{
 		temp += "\n\n" + ConvertBaseMethod(base, i);
@@ -168,7 +168,7 @@ std::string Converter::ConvertBase(size_t base)
 
 std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 {
-	std::string temp = "\t__host__ __device__ " + hierarchies.at(base).base.methods.at(method).rettype + " " + hierarchies.at(base).base.methods.at(method).name + "(";
+	std::string temp = (prefix ? "\t" + std::string(prefix) + " " : "\t") + hierarchies.at(base).base.methods.at(method).rettype + " " + hierarchies.at(base).base.methods.at(method).name + "(";
 	for (size_t i = 0; i < hierarchies.at(base).base.methods.at(method).args.size(); i++)
 	{
 		temp += hierarchies.at(base).base.methods.at(method).args.at(i).type + " ";
@@ -207,7 +207,7 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 
 std::string Converter::ConvertSubFactory(size_t base, size_t sub)
 {
-	std::string temp = "__host__ __device__ " + hierarchies.at(base).base.name + " " + hierarchies.at(base).subclasses.at(sub).name + "(";
+	std::string temp = (prefix ? std::string(prefix) + " " : "") + hierarchies.at(base).base.name + " " + hierarchies.at(base).subclasses.at(sub).name + "(";
 	for (size_t i = 0; i < hierarchies.at(base).base.data.size(); i++)
 	{
 		temp += hierarchies.at(base).base.data.at(i).type + " ";
