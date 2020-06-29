@@ -97,7 +97,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).type + " ";
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).name + ", ";
 		}
-		temp += "const " + hierarchies.at(base).base.name + "Data& data";
+		temp += hierarchies.at(base).base.name + "Data& data";
 		if (forward)
 		{
 			temp += ");";
@@ -139,7 +139,7 @@ std::string Converter::ConvertBase(size_t base)
 				temp += hierarchies.at(base).base.methods.at(i).args.at(j).type + " ";
 				temp += hierarchies.at(base).base.methods.at(i).args.at(j).name + ", ";
 			}
-			temp += "const " + hierarchies.at(base).base.name + "Data& data)\n{";
+			temp += hierarchies.at(base).base.name + "Data& data)\n{";
 			std::string convertedContents = hierarchies.at(base).base.methods.at(i).contents;
 			std::string unionName = "data.BaseData.$&";
 			for (size_t j = 0; j < hierarchies.at(base).base.data.size(); j++)
