@@ -44,11 +44,16 @@ std::string Converter::ConvertHierarchy(size_t base)
 	temp += ConvertBase(base) + "\n";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
+		temp += "\n" + ConvertSubFactory(base, i, true);
+	}
+	temp += "\n";
+	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	{
 		temp += "\n" + ConvertSubMethod(base, i, false);
 	}
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
-		temp += "\n" + ConvertSubFactory(base, i);
+		temp += "\n" + ConvertSubFactory(base, i, false);
 	}
 	return temp;
 }
@@ -89,7 +94,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 	std::string temp = "";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).methods.size(); i++)
 	{
-		if (!hierarchies.at(base).subclasses.at(sub).methods.at(i).hasContents) continue;
+		if (!hierarchies.at(base).subclasses.at(sub).methods.at(i).hasContents) { continue; }
 		temp += (prefix ? std::string(prefix) + " " : "") + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.rettype + " ";
 		temp += hierarchies.at(base).subclasses.at(sub).name + hierarchies.at(base).subclasses.at(sub).methods.at(i).base.name + "(";
 		for (size_t j = 0; j < hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.size(); j++)
@@ -173,12 +178,12 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 	{
 		temp += hierarchies.at(base).base.methods.at(method).args.at(i).type + " ";
 		temp += hierarchies.at(base).base.methods.at(method).args.at(i).name;
-		if (i < hierarchies.at(base).base.methods.at(method).args.size() - 1) temp += ", ";
+		if (i < hierarchies.at(base).base.methods.at(method).args.size() - 1) { temp += ", "; }
 	}
 	temp += ")\n\t{\n\t\tswitch (type)\n\t\t{";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
-		if (!hierarchies.at(base).subclasses.at(i).methods.at(method).hasContents) continue;
+		if (!hierarchies.at(base).subclasses.at(i).methods.at(method).hasContents) { continue; }
 		temp += "\n\t\tcase Type::" + hierarchies.at(base).subclasses.at(i).name + ":";
 		temp += "\n\t\t\treturn " + hierarchies.at(base).subclasses.at(i).name + hierarchies.at(base).base.methods.at(method).name + "(";
 		for (size_t j = 0; j < hierarchies.at(base).base.methods.at(method).args.size(); j++)
@@ -205,30 +210,37 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 	return temp;
 }
 
-std::string Converter::ConvertSubFactory(size_t base, size_t sub)
+std::string Converter::ConvertSubFactory(size_t base, size_t sub, bool forward)
 {
 	std::string temp = (prefix ? std::string(prefix) + " " : "") + hierarchies.at(base).base.name + " " + hierarchies.at(base).subclasses.at(sub).name + "(";
 	for (size_t i = 0; i < hierarchies.at(base).base.data.size(); i++)
 	{
 		temp += hierarchies.at(base).base.data.at(i).type + " ";
 		temp += hierarchies.at(base).base.data.at(i).name;
-		if (i < hierarchies.at(base).subclasses.at(sub).data.size() + hierarchies.at(base).base.data.size() - 1) temp += ", ";
+		if (i < hierarchies.at(base).subclasses.at(sub).data.size() + hierarchies.at(base).base.data.size() - 1) { temp += ", "; }
 	}
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).data.size(); i++)
 	{
 		temp += hierarchies.at(base).subclasses.at(sub).data.at(i).type + " ";
 		temp += hierarchies.at(base).subclasses.at(sub).data.at(i).name;
-		if (i < hierarchies.at(base).subclasses.at(sub).data.size() - 1) temp += ", ";
+		if (i < hierarchies.at(base).subclasses.at(sub).data.size() - 1) { temp += ", "; }
 	}
-	temp += ")\n{\n\t" + hierarchies.at(base).base.name + "Data::" + hierarchies.at(base).subclasses.at(sub).name + "Data data;";
-	for (size_t i = 0; i < hierarchies.at(base).base.data.size(); i++)
+	if (forward)
 	{
-		temp += "\n\tdata." + hierarchies.at(base).base.data.at(i).name + " = " + hierarchies.at(base).base.data.at(i).name + ";";
+		temp += ");";
 	}
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).data.size(); i++)
+	else
 	{
-		temp += "\n\tdata." + hierarchies.at(base).subclasses.at(sub).data.at(i).name + " = " + hierarchies.at(base).subclasses.at(sub).data.at(i).name + ";";
+		temp += ")\n{\n\t" + hierarchies.at(base).base.name + "Data::" + hierarchies.at(base).subclasses.at(sub).name + "Data data;";
+		for (size_t i = 0; i < hierarchies.at(base).base.data.size(); i++)
+		{
+			temp += "\n\tdata." + hierarchies.at(base).base.data.at(i).name + " = " + hierarchies.at(base).base.data.at(i).name + ";";
+		}
+		for (size_t i = 0; i < hierarchies.at(base).subclasses.at(sub).data.size(); i++)
+		{
+			temp += "\n\tdata." + hierarchies.at(base).subclasses.at(sub).data.at(i).name + " = " + hierarchies.at(base).subclasses.at(sub).data.at(i).name + ";";
+		}
+		temp += "\n\treturn " + hierarchies.at(base).base.name + "(" + hierarchies.at(base).base.name + "::Type::" + hierarchies.at(base).subclasses.at(sub).name + ", data);\n}";
 	}
-	temp += "\n\treturn " + hierarchies.at(base).base.name + "(" + hierarchies.at(base).base.name + "::Type::" + hierarchies.at(base).subclasses.at(sub).name + ", data);\n}";
 	return temp;
 }

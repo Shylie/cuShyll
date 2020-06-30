@@ -20,7 +20,7 @@ private:
 	std::string ConvertSubMethod(size_t base, size_t sub, bool forward);
 	std::string ConvertBase(size_t base);
 	std::string ConvertBaseMethod(size_t base, size_t method);
-	std::string ConvertSubFactory(size_t base, size_t sub);
+	std::string ConvertSubFactory(size_t base, size_t sub, bool forward);
 
 	std::vector<Hierarchy> hierarchies;
 	const char* prefix;
