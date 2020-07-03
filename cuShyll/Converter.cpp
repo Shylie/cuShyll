@@ -19,41 +19,50 @@ std::string Converter::operator()()
 	temp += "\n";
 	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += ConvertHierarchy(i) + "\n";
+		temp += "union " + hierarchies.at(i).base.name + "Data\n{\n" + ConvertBaseDataUnion(i) + "\n";
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += ConvertDataUnion(i, j) + "\n";
+		}
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += ConvertDataUnionConstructor(i, j) + "\n";
+		}
+		temp += "};\n\n";
 	}
-	return temp;
-}
-
-std::string Converter::ConvertHierarchy(size_t base)
-{
-	std::string temp = "union " + hierarchies.at(base).base.name + "Data\n{\n";
-	temp += ConvertBaseDataUnion(base) + "\n";
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += ConvertDataUnion(base, i) + "\n";
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += ConvertSubMethod(i, j, true) + "\n";
+		}
 	}
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += ConvertDataUnionConstructor(base, i) + "\n";
+		temp += ConvertBase(i);
+		temp += "\n";
 	}
-	temp += "};\n\n";
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += ConvertSubMethod(base, i, true) + "\n";
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += "\n" + ConvertSubFactory(i, j, true);
+		}
+		temp += "\n";
 	}
-	temp += ConvertBase(base) + "\n";
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += "\n" + ConvertSubFactory(base, i, true);
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += "\n" + ConvertSubMethod(i, j, false);
+		}
 	}
-	temp += "\n";
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	for (size_t i = 0; i < hierarchies.size(); i++)
 	{
-		temp += "\n" + ConvertSubMethod(base, i, false);
-	}
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
-	{
-		temp += "\n" + ConvertSubFactory(base, i, false);
+		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
+		{
+			temp += "\n" + ConvertSubFactory(i, j, false);
+		}
 	}
 	return temp;
 }
@@ -102,7 +111,7 @@ std::string Converter::ConvertSubMethod(size_t base, size_t sub, bool forward)
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).type + " ";
 			temp += hierarchies.at(base).subclasses.at(sub).methods.at(i).base.args.at(j).name + ", ";
 		}
-		temp += hierarchies.at(base).base.name + "Data& data";
+		temp += hierarchies.at(base).base.name + "Data& data, " + hierarchies.at(base).base.name + "& obj";
 		if (forward)
 		{
 			temp += ");";
@@ -144,7 +153,7 @@ std::string Converter::ConvertBase(size_t base)
 				temp += hierarchies.at(base).base.methods.at(i).args.at(j).type + " ";
 				temp += hierarchies.at(base).base.methods.at(i).args.at(j).name + ", ";
 			}
-			temp += hierarchies.at(base).base.name + "Data& data)\n{";
+			temp += hierarchies.at(base).base.name + "Data& data, " + hierarchies.at(base).base.name + "& obj)\n{";
 			std::string convertedContents = hierarchies.at(base).base.methods.at(i).contents;
 			std::string unionName = "data.BaseData.$&";
 			for (size_t j = 0; j < hierarchies.at(base).base.data.size(); j++)
@@ -190,7 +199,7 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 		{
 			temp += hierarchies.at(base).base.methods.at(method).args.at(j).name + ", ";
 		}
-		temp += "data);";
+		temp += "data, *this);";
 	}
 	temp += "\n\t\tdefault:\n\t\t\treturn ";
 	if (hierarchies.at(base).base.methods.at(method).hasContents)
@@ -200,7 +209,7 @@ std::string Converter::ConvertBaseMethod(size_t base, size_t method)
 		{
 			temp += hierarchies.at(base).base.methods.at(method).args.at(j).name + ", ";
 		}
-		temp += "data);";
+		temp += "data, *this);";
 	}
 	else
 	{
