@@ -24,21 +24,16 @@ std::string Converter::operator()()
 		{
 			temp += ConvertDataUnion(i, j) + "\n";
 		}
+		temp += ConvertBaseDataUnionConstructor(i) + "\n";
 		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
 		{
 			temp += ConvertDataUnionConstructor(i, j) + "\n";
 		}
 		temp += "};\n\n";
-	}
-	for (size_t i = 0; i < hierarchies.size(); i++)
-	{
 		for (size_t j = 0; j < hierarchies.at(i).subclasses.size(); j++)
 		{
 			temp += ConvertSubMethod(i, j, true) + "\n";
 		}
-	}
-	for (size_t i = 0; i < hierarchies.size(); i++)
-	{
 		temp += ConvertBase(i);
 		temp += "\n";
 	}
@@ -91,6 +86,11 @@ std::string Converter::ConvertDataUnion(size_t base, size_t sub)
 	}
 	temp += "\n\t} " + hierarchies.at(base).subclasses.at(sub).name + ";";
 	return temp;
+}
+
+std::string Converter::ConvertBaseDataUnionConstructor(size_t base)
+{
+	return (prefix ? "\t" + std::string(prefix) + " " : "\t") + hierarchies.at(base).base.name + "Data() { }";
 }
 
 std::string Converter::ConvertDataUnionConstructor(size_t base, size_t sub)
@@ -165,12 +165,13 @@ std::string Converter::ConvertBase(size_t base)
 			temp += "}\n";
 		}
 	}
-	temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{";
+	temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{\n\t\tInvalid,";
 	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
 	{
 		temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + ",";
 	}
 	temp += "\n\t} type;\n\n\t" + hierarchies.at(base).base.name + "Data data;";
+	temp += (prefix ? "\n\t" + std::string(prefix) + " " : "\n\t") + hierarchies.at(base).base.name + "() : type(Type::Invalid), data() { }";
 	temp += (prefix ? "\n\t" + std::string(prefix) + " " : "\n\t") + hierarchies.at(base).base.name + "(Type type, " + hierarchies.at(base).base.name + "Data data) : type(type), data(data) { }";
 	for (size_t i = 0; i < hierarchies.at(base).base.methods.size(); i++)
 	{

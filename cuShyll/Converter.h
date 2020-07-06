@@ -15,6 +15,7 @@ public:
 private:
 	std::string ConvertBaseDataUnion(size_t base);
 	std::string ConvertDataUnion(size_t base, size_t sub);
+	std::string ConvertBaseDataUnionConstructor(size_t base);
 	std::string ConvertDataUnionConstructor(size_t base, size_t sub);
 	std::string ConvertSubMethod(size_t base, size_t sub, bool forward);
 	std::string ConvertBase(size_t base);
