@@ -42,6 +42,7 @@ void Parser::BaseClass()
 	Consume(Token::Type::Identifier, "Expected identifier after 'baseclass'.");
 	hierarchies.emplace_back();
 	hierarchies.back().base.name = previous.lexeme;
+	if (Match(Token::Type::Bitfield)) { hierarchies.back().base.bitfield = true; }
 	size_t back = hierarchies.size() - 1;
 	while (!tokenizer.IsAtEnd() && (current.type == Token::Type::Dash || current.type == Token::Type::Equals))
 	{
@@ -79,12 +80,12 @@ void Parser::BaseMethod(Hierarchy& hierarchy)
 		}
 	}
 
-	if (Match(Token::Type::LeftBrace))
+	if (Match(Token::Type::LeftBracket))
 	{
-		Consume(Token::Type::CodeBlock, "Expected code block after '{'.");
+		Consume(Token::Type::CodeBlock, "Expected code block after '['.");
 		hierarchy.base.methods.back().contents = previous.lexeme;
 		hierarchy.base.methods.back().hasContents = true;
-		Consume(Token::Type::RightBrace, "Expected '}' after code block.");
+		Consume(Token::Type::RightBracket, "Expected ']' after code block.");
 	}
 }
 
@@ -151,7 +152,7 @@ void Parser::SubMethod(SubClassRepr& subclass)
 		}
 	}
 
-	if (!Match(Token::Type::LeftBrace))
+	if (!Match(Token::Type::LeftBracket))
 	{
 		bool doError = true;
 		size_t matchidx = 0;
@@ -192,9 +193,9 @@ void Parser::SubMethod(SubClassRepr& subclass)
 	}
 	else
 	{
-		Consume(Token::Type::CodeBlock, "Expected code block after '{'.");
+		Consume(Token::Type::CodeBlock, "Expected code block after '['.");
 		std::string code = previous.lexeme;
-		Consume(Token::Type::RightBrace, "Expected '}' after code block.");
+		Consume(Token::Type::RightBracket, "Expected ']' after code block.");
 
 		bool doError = true;
 		size_t matchidx = 0;

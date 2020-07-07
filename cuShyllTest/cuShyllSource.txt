@@ -3,17 +3,17 @@ baseclass Texture
 
 subclass ConstantColor implements Texture
 - Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	return albedo;
-}
+]
 = Vec3 albedo
 
 subclass OutlinedColor implements Texture
 - Vec3 Value(Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	float lerp = -Vec3::Dot(normal, ray.Direction());
 	return lerp * fill + (1.0f - lerp) * outline;
-}
+]
 = Vec3 outline
 = Vec3 fill
 
@@ -23,44 +23,44 @@ baseclass Material
 
 subclass Lambertian implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
-{
+[
 	attenuation = texture->Value(point, normal, ray);
 	ray = Ray3(point, normal + Vec3::RandomUnitVector(seed));
 	return true;
-}
+]
 - Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	return Vec3(0.0f);
-}
+]
 = Texture* texture
 
 subclass Metal implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
-{
+[
 	attenuation = texture->Value(point, normal, ray);
 	ray = Ray3(point, ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal);
 	return Vec3::Dot(ray.Direction(), normal) > 0.0f;
-}
+]
 - Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	return Vec3(0.0f);
-}
+]
 = Texture* texture
 
 subclass DiffuseLight implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
-{
+[
 	return false;
-}
+]
 - Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	return texture->Value(point, normal, ray);
-}
+]
 = Texture* texture
 
 subclass Dieletric implements Material
 - bool Scatter(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3& ray, Vec3& attenuation)
-{
+[
 	Vec3 outwardNormal;
 	float niOverNt;
 	if (Vec3::Dot(ray.Direction(), normal) > 0.0f)
@@ -89,11 +89,11 @@ subclass Dieletric implements Material
 	attenuation = Vec3(1.0f);
 	ray = Ray3(point, ray.Direction() - 2.0f * Vec3::Dot(ray.Direction(), normal) * normal);
 	return true;
-}
+]
 - Vec3 Emit(uint32_t* seed, float t, Vec3 point, Vec3 normal, Ray3 ray)
-{
+[
 	return Vec3(0.0f);
-}
+]
 = float refractiveIndex
 = Texture* texture
 
@@ -103,7 +103,7 @@ baseclass Hittable
 
 subclass Sphere implements Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
-{
+[
 	Vec3 oc = ray.Origin() - center;
 	float b = Vec3::Dot(oc, ray.Direction());
 	float c = oc.LengthSquared() - radius * radius;
@@ -131,19 +131,19 @@ subclass Sphere implements Hittable
 		}
 	}
 	return false;
-}
+]
 - bool BoundingBox(AABB& bbox)
-{
+[
 	bbox = AABB(center - Vec3(radius), center + Vec3(radius));
 	return true;
-}
+]
 = Vec3 center
 = float radius
 = Material* material
 
 subclass RectangularPlane implements Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
-{
+[
 	float _x, _y, _z;
 	switch (plane)
 	{
@@ -217,9 +217,9 @@ subclass RectangularPlane implements Hittable
 	default:
 		return false;
 	}
-}
+]
 - bool BoundingBox(AABB& bbox)
-{
+[
 	switch (plane)
 	{
 	case 0: // yz plane
@@ -234,7 +234,7 @@ subclass RectangularPlane implements Hittable
 	default:
 		return false;
 	}
-}
+]
 = float a1
 = float a2
 = float b1
@@ -246,7 +246,7 @@ subclass RectangularPlane implements Hittable
 
 subclass BVHNode implements Hittable
 - bool Hit(Ray3& ray, float tMin, float tMax, float& t, Vec3& point, Vec3& normal, Material*& mat)
-{
+[
 	float t1, t2;
 	Vec3 p1, p2, n1, n2;
 	Material* m1;
@@ -292,12 +292,12 @@ subclass BVHNode implements Hittable
 		}
 	}
 	return false;
-}
+]
 - bool BoundingBox(AABB& bbox)
-{
+[
 	bbox = box;
 	return true;
-}
+]
 = Hittable* left
 = Hittable* right
 = AABB box

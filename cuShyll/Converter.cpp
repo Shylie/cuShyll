@@ -165,10 +165,21 @@ std::string Converter::ConvertBase(size_t base)
 			temp += "}\n";
 		}
 	}
-	temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{\n\t\tInvalid,";
-	for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+	if (hierarchies.at(base).base.bitfield)
 	{
-		temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + ",";
+		temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{\n\t\tInvalid = 0,";
+		for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+		{
+			temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + " = 1 << " + std::to_string(i) + ",";
+		}
+	}
+	else
+	{
+		temp += "struct " + hierarchies.at(base).base.name + "\n{\n\tenum class Type\n\t{\n\t\tInvalid,";
+		for (size_t i = 0; i < hierarchies.at(base).subclasses.size(); i++)
+		{
+			temp += "\n\t\t" + hierarchies.at(base).subclasses.at(i).name + ",";
+		}
 	}
 	temp += "\n\t} type;\n\n\t" + hierarchies.at(base).base.name + "Data data;";
 	temp += (prefix ? "\n\t" + std::string(prefix) + " " : "\n\t") + hierarchies.at(base).base.name + "() : type(Type::Invalid), data() { }";

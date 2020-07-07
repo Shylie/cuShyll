@@ -12,9 +12,9 @@ struct BaseMethodRepr final
 {
 	std::string name;
 	std::string rettype;
-	std::vector<VarRepr> args;
 	std::string contents;
 	bool hasContents = false;
+	std::vector<VarRepr> args;
 };
 
 struct SubMethodRepr final
@@ -27,6 +27,7 @@ struct SubMethodRepr final
 struct BaseClassRepr final
 {
 	std::string name;
+	bool bitfield = false;
 	std::vector<BaseMethodRepr> methods;
 	std::vector<VarRepr> data;
 };
@@ -34,9 +35,9 @@ struct BaseClassRepr final
 struct SubClassRepr final
 {
 	std::string name;
+	BaseClassRepr base;
 	std::vector<SubMethodRepr> methods;
 	std::vector<VarRepr> data;
-	BaseClassRepr base;
 };
 
 struct Hierarchy final
